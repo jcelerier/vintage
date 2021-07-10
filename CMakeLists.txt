@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+
+project(vintage)
+
+add_library(TanhDistortion SHARED examples/audio_effect/distortion.cpp)
+
+target_compile_features(TanhDistortion PRIVATE cxx_std_20)
+target_compile_definitions(TanhDistortion PRIVATE FMT_HEADER_ONLY=1)
+target_include_directories(TanhDistortion PRIVATE include)
+
+set_target_properties(
+  TanhDistortion
+  PROPERTIES
+    PREFIX ""
+    POSITION_INDEPENDENT_CODE 1
+    VISIBILITY_INLINES_HIDDEN 1
+    CXX_VISIBILITY_PRESET hidden
+)
