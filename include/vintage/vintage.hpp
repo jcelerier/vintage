@@ -209,12 +209,12 @@ enum class HostOpcodes : int32_t
 
 enum class EventTypes : int32_t
 {
-  MidiType = 1,
-  AudioType,
-  VideoType,
-  ParameterType,
-  TriggerType,
-  SysExType
+  Midi = 1,
+  Audio,
+  Video,
+  Parameter,
+  Trigger,
+  SysEx
 };
 
 enum class MidiEventFlags : int32_t
@@ -668,7 +668,7 @@ struct Events
 
 struct MidiEvent
 {
-  EventTypes type = EventTypes::MidiType;
+  EventTypes type = EventTypes::Midi;
   int32_t byteSize = sizeof(MidiEvent);
   int32_t deltaFrames{};
   MidiEventFlags flags{};
@@ -684,7 +684,7 @@ struct MidiEvent
 
 struct MidiSysexEvent
 {
-  EventTypes type = EventTypes::SysExType;
+  EventTypes type = EventTypes::SysEx;
   int32_t byteSize = sizeof(MidiSysexEvent);
   int32_t deltaFrames{};
   MidiSysexFlags flags{};
