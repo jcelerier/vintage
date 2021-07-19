@@ -2,14 +2,15 @@
 
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-#include <vintage/vintage.hpp>
 #include <vintage/helpers.hpp>
+#include <vintage/vintage.hpp>
 
 namespace vintage
 {
 
-template<typename T>
-concept synth_voice = requires (T t) {
+template <typename T>
+concept synth_voice = requires(T t)
+{
   t.frequency;
   t.volume;
   t.elapsed;
@@ -18,9 +19,11 @@ concept synth_voice = requires (T t) {
 };
 
 template <typename T>
-struct PolyphonicSynthesizer: vintage::Effect
+struct PolyphonicSynthesizer : vintage::Effect
 {
-  static_assert(synth_voice<typename T::voice>, "T does not implement a correct synth voice system");
+  static_assert(
+      synth_voice<typename T::voice>,
+      "T does not implement a correct synth voice system");
 
   T implementation;
   vintage::HostCallback master{};
@@ -70,7 +73,8 @@ struct PolyphonicSynthesizer: vintage::Effect
     Effect::numOutputs = T::channels;
     Effect::numParams = Controls<T>::parameter_count + 3;
 
-    Effect::flags = EffectFlags::CanReplacing | EffectFlags::CanDoubleReplacing | EffectFlags::IsSynth;
+    Effect::flags = EffectFlags::CanReplacing | EffectFlags::CanDoubleReplacing
+                    | EffectFlags::IsSynth;
     Effect::ioRatio = 1.;
     Effect::object = nullptr;
     Effect::user = nullptr;
@@ -88,101 +92,109 @@ struct PolyphonicSynthesizer: vintage::Effect
     return this->master(this, static_cast<int32_t>(opcode), a, b, c, d);
   }
 
-
   void note_on(int32_t note, int32_t velocity)
   {
-      voices.push_back({.note = float(note), .velocity = float(velocity), .detune = 0.0f});
-      float unison = this->controls.unison_voices * 20.0;
-      float detune = this->controls.unison_detune;
-      float vol = this->controls.unison_volume;
-      for(float i = -unison; i <= unison; i += 2.f)
-      {
-          voices.push_back({.note = float(note), .velocity = velocity * vol, .detune = i * (1.f + detune)});
-      }
+    voices.push_back(
+        {.note = float(note), .velocity = float(velocity), .detune = 0.0f});
+    float unison = this->controls.unison_voices * 20.0;
+    float detune = this->controls.unison_detune;
+    float vol = this->controls.unison_volume;
+    for (float i = -unison; i <= unison; i += 2.f)
+    {
+      voices.push_back(
+          {.note = float(note),
+           .velocity = velocity * vol,
+           .detune = i * (1.f + detune)});
+    }
   }
 
   void note_off(int32_t note, int32_t velocity)
   {
-      for(auto it = voices.begin(); it != voices.end(); )
+    for (auto it = voices.begin(); it != voices.end();)
+    {
+      if (it->note == note)
       {
-          if(it->note == note)
-          {
-              it->implementation.release_frame = it->implementation.elapsed;
-              release_voices.push_back(*it);
-              it = voices.erase(it);
-          }
-          else
-          {
-              ++it;
-          }
+        it->implementation.release_frame = it->implementation.elapsed;
+        release_voices.push_back(*it);
+        it = voices.erase(it);
       }
+      else
+      {
+        ++it;
+      }
+    }
   }
 
   void bend(int32_t bend)
   {
-      for(auto& voice : voices)
-      {
-          voice.bend = bend / 100.;
-      }
-      for(auto& voice : release_voices)
-      {
-          voice.bend = bend / 100.;
-      }
+    for (auto& voice : voices)
+    {
+      voice.bend = bend / 100.;
+    }
+    for (auto& voice : release_voices)
+    {
+      voice.bend = bend / 100.;
+    }
   }
 
   void midi_input(const vintage::MidiEvent& e)
   {
-      switch (e.midiData[0] & 0xF0)
-      {
+    switch (e.midiData[0] & 0xF0)
+    {
       case 0x80: // Note off
       {
-          note_off(e.midiData[1] & 0x7F, e.midiData[2] & 0x7F);
-          break;
+        note_off(e.midiData[1] & 0x7F, e.midiData[2] & 0x7F);
+        break;
       }
 
       case 0x90: // Note on
       {
-          if (int velocity = e.midiData[2] & 0x7F; velocity > 0) {
-              note_on(e.midiData[1] & 0x7F, velocity);
-          } else {
-              note_off(e.midiData[1] & 0x7F, 0);
-          }
-          break;
+        if (int velocity = e.midiData[2] & 0x7F; velocity > 0)
+        {
+          note_on(e.midiData[1] & 0x7F, velocity);
+        }
+        else
+        {
+          note_off(e.midiData[1] & 0x7F, 0);
+        }
+        break;
       }
 
       case 0xE0: // Pitch bend
       {
-          int32_t lsb = (e.midiData[1] & 0x7F);
-          int32_t msb = (e.midiData[2] & 0x7F);
-          bend((msb << 7) + lsb - 0x2000);
-          break;
+        int32_t lsb = (e.midiData[1] & 0x7F);
+        int32_t msb = (e.midiData[2] & 0x7F);
+        bend((msb << 7) + lsb - 0x2000);
+        break;
       }
-      }
+    }
   }
 
+  struct voice
+  {
+    float note{};
+    float velocity{};
+    float detune{};
+    float bend{};
 
-  struct voice {
-      float note{};
-      float velocity{};
-      float detune{};
-      float bend{};
+    typename T::voice implementation;
 
-      typename T::voice implementation;
+    template <typename sample_t>
+    void
+    process(PolyphonicSynthesizer& self, sample_t** outputs, int32_t frames)
+    {
+      implementation.frequency
+          = 440. * std::pow(2.0, (note - 69) / 12.0) + detune + bend;
+      implementation.volume = velocity / 127.;
 
-      template<typename sample_t>
-      void process(PolyphonicSynthesizer& self, sample_t** outputs, int32_t frames)
-      {
-          implementation.frequency = 440. * std::pow(2.0, (note - 69) / 12.0) + detune + bend;
-          implementation.volume = velocity / 127.;
-
-          implementation.process(self.implementation, outputs, frames);
-      }
+      implementation.process(self.implementation, outputs, frames);
+    }
   };
 
   void process(
-          std::floating_point auto** inputs,
-          std::floating_point auto** outputs,
-          int32_t frames)
+      std::floating_point auto** inputs,
+      std::floating_point auto** outputs,
+      int32_t frames)
   {
     // Check if processing is to be bypassed
     if constexpr (requires { implementation.bypass; })
@@ -196,28 +208,28 @@ struct PolyphonicSynthesizer: vintage::Effect
 
     // Clear buffer
     for (int32_t c = 0; c < implementation.channels; c++)
-        for (int32_t i = 0; i < frames; i++)
-            outputs[c][i] = 0.0;
+      for (int32_t i = 0; i < frames; i++)
+        outputs[c][i] = 0.0;
 
     // Process voices
-    for(auto& voice : voices)
+    for (auto& voice : voices)
     {
       voice.process(*this, outputs, frames);
     }
 
     // Process voices that were note'off'd in order to cleanly fade out
-    for(auto it = release_voices.begin(); it != release_voices.end(); )
+    for (auto it = release_voices.begin(); it != release_voices.end();)
     {
-        auto& voice = *it;
-        voice.process(*this, outputs, frames);
-        if(voice.implementation.recycle)
-            it = release_voices.erase(it);
-        else
-            ++it;
+      auto& voice = *it;
+      voice.process(*this, outputs, frames);
+      if (voice.implementation.recycle)
+        it = release_voices.erase(it);
+      else
+        ++it;
     }
 
     // Post-processing
-    if constexpr(effect_processor<float, T> || effect_processor<double, T>)
+    if constexpr (effect_processor<float, T> || effect_processor<double, T>)
     {
       implementation.process(inputs, outputs, frames);
     }
@@ -228,9 +240,9 @@ struct PolyphonicSynthesizer: vintage::Effect
 };
 }
 
-#define VINTAGE_DEFINE_SYNTH(EffectMainClass)                       \
+#define VINTAGE_DEFINE_SYNTH(EffectMainClass)                        \
   extern "C" VINTAGE_EXPORTED_SYMBOL vintage::Effect* VSTPluginMain( \
       vintage::HostCallback cb)                                      \
   {                                                                  \
-    return new vintage::PolyphonicSynthesizer<EffectMainClass>{cb};      \
+    return new vintage::PolyphonicSynthesizer<EffectMainClass>{cb};  \
   }

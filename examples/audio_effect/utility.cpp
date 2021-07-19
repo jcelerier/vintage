@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-#include <cmath>
 #include <vintage/audio_effect.hpp>
+
+#include <cmath>
 
 struct Utility
 {
@@ -33,7 +34,8 @@ struct Utility
 
   auto process(std::floating_point auto input)
   {
-    return (parameters.volume.value) * (parameters.phase.value > 0.5f ? 1 - input : input);
+    return (parameters.volume.value)
+           * (parameters.phase.value > 0.5f ? 1 - input : input);
   }
 };
 

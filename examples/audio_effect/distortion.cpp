@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-#include <cmath>
 #include <vintage/audio_effect.hpp>
+
+#include <cmath>
 
 struct TanhDistortion
 {
@@ -32,7 +33,8 @@ struct TanhDistortion
       constexpr auto short_label() const noexcept { return "Preamp"; }
       auto display(char* data) const noexcept
       {
-        snprintf(data, vintage::Constants::ParamStrLen, "%d dB", int(value * 100));
+        snprintf(
+            data, vintage::Constants::ParamStrLen, "%d dB", int(value * 100));
       }
 
       float value{0.5};
@@ -52,9 +54,9 @@ struct TanhDistortion
   {
     std::string_view name;
     decltype(TanhDistortion::parameters) parameters;
-  } programs[2] {
-      { .name{"Low gain"}, .parameters{.preamp = {0.3}, .volume = {0.6}}},
-      { .name{"Hi gain"},  .parameters{.preamp = {1.0}, .volume = {1.0}}},
+  } programs[2]{
+      {.name{"Low gain"}, .parameters{.preamp = {0.3}, .volume = {0.6}}},
+      {.name{"Hi gain"}, .parameters{.preamp = {1.0}, .volume = {1.0}}},
   };
 
   // Main processing function, will be generated for the float and double cases

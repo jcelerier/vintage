@@ -2,8 +2,8 @@
 
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-#include <vintage/vintage.hpp>
 #include <vintage/helpers.hpp>
+#include <vintage/vintage.hpp>
 
 namespace vintage
 {
@@ -59,7 +59,8 @@ struct SimpleAudioEffect : vintage::Effect
     Effect::numOutputs = T::channels;
     Effect::numParams = Controls<T>::parameter_count;
 
-    Effect::flags = EffectFlags::CanReplacing | EffectFlags::CanDoubleReplacing;
+    Effect::flags
+        = EffectFlags::CanReplacing | EffectFlags::CanDoubleReplacing;
     Effect::ioRatio = 1.;
     Effect::object = nullptr;
     Effect::user = nullptr;
@@ -82,11 +83,10 @@ struct SimpleAudioEffect : vintage::Effect
     return this->master(this, static_cast<int32_t>(opcode), a, b, c, d);
   }
 
-
   void process(
-          std::floating_point auto** inputs,
-          std::floating_point auto** outputs,
-          int32_t sampleFrames)
+      std::floating_point auto** inputs,
+      std::floating_point auto** outputs,
+      int32_t sampleFrames)
   {
     // Check if processing is to be bypassed
     if constexpr (requires { implementation.bypass; })
@@ -99,17 +99,20 @@ struct SimpleAudioEffect : vintage::Effect
     controls.write(implementation);
 
     // Actual processing
-    if constexpr(requires { implementation.process(inputs, outputs, sampleFrames); })
+    if constexpr (requires
+                  { implementation.process(inputs, outputs, sampleFrames); })
     {
       return implementation.process(inputs, outputs, sampleFrames);
     }
-    else if constexpr(requires { outputs[0][0] = implementation.process(inputs[0][0]); })
+    else if constexpr (requires {
+                         outputs[0][0] = implementation.process(inputs[0][0]);
+                       })
     {
-      for(int32_t c = 0; c < implementation.channels; ++c)
+      for (int32_t c = 0; c < implementation.channels; ++c)
       {
-        for(int32_t i = 0; i < sampleFrames; i++)
+        for (int32_t i = 0; i < sampleFrames; i++)
         {
-            outputs[c][i] = implementation.process(inputs[c][i]);
+          outputs[c][i] = implementation.process(inputs[c][i]);
         }
       }
     }
