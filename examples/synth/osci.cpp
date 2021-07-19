@@ -43,6 +43,7 @@ struct Osci
   {
     float frequency{};
     float volume{};
+    float pan[channels]{};
     int32_t elapsed{};
     int32_t release_frame{-1};
     bool recycle{};
@@ -96,7 +97,7 @@ struct Osci
       {
         sample_t sample = vol * envelope<sample_t>(a, s, r) * std::sin(phase);
         for (int32_t c = 0; c < channels; c++)
-          outputs[c][i] += sample;
+          outputs[c][i] += sample * pan[c];
         phase += phi;
         elapsed++;
       }

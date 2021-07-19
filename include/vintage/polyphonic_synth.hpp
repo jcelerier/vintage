@@ -104,7 +104,8 @@ struct PolyphonicSynthesizer : vintage::Effect
       voices.push_back(
           {.note = float(note),
            .velocity = velocity * vol,
-           .detune = i * (1.f + detune)});
+           .detune = i * (1.f + detune),
+           .pan = (int(i/2) % 2) ? -1.f : 1.f });
     }
   }
 
@@ -176,6 +177,7 @@ struct PolyphonicSynthesizer : vintage::Effect
     float velocity{};
     float detune{};
     float bend{};
+    float pan{};
 
     typename T::voice implementation;
 
@@ -186,6 +188,12 @@ struct PolyphonicSynthesizer : vintage::Effect
       implementation.frequency
           = 440. * std::pow(2.0, (note - 69) / 12.0) + detune + bend;
       implementation.volume = velocity / 127.;
+
+      if constexpr(std::size(decltype(implementation.pan){}) == 2)
+      {
+        implementation.pan[0] = pan == -1.f ? 1. : 0.;
+        implementation.pan[1] = pan ==  1.f ? 1. : 0.;
+      }
 
       implementation.process(self.implementation, outputs, frames);
     }
