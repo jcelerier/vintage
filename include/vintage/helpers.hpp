@@ -345,11 +345,8 @@ intptr_t default_dispatch(
             return available.find(reinterpret_cast<const char*>(ptr)) != available.end() ? 1 : 0;
         }
         /*
-      "hasCockosExtensions";
       "sendVstEvents";
       "sendVstMidiEvent";
-
-
       fmt::print(" --> Can do ? {} \n", (const char*)ptr);
       */
         return 0;

@@ -8,9 +8,20 @@
 namespace vintage
 {
 
+template<typename T>
+concept synth_voice = requires (T t) {
+  t.frequency;
+  t.volume;
+  t.elapsed;
+  t.release_frame;
+  t.recycle;
+};
+
 template <typename T>
 struct PolyphonicSynthesizer: vintage::Effect
 {
+  static_assert(synth_voice<typename T::voice>, "T does not implement a correct synth voice system");
+
   T implementation;
   vintage::HostCallback master{};
 
@@ -77,46 +88,75 @@ struct PolyphonicSynthesizer: vintage::Effect
     return this->master(this, static_cast<int32_t>(opcode), a, b, c, d);
   }
 
+
+  void note_on(int32_t note, int32_t velocity)
+  {
+      voices.push_back({.note = float(note), .velocity = float(velocity), .detune = 0.0f});
+      float unison = this->controls.unison_voices * 20.0;
+      float detune = this->controls.unison_detune;
+      float vol = this->controls.unison_volume;
+      for(float i = -unison; i <= unison; i += 2.f)
+      {
+          voices.push_back({.note = float(note), .velocity = velocity * vol, .detune = i * (1.f + detune)});
+      }
+  }
+
+  void note_off(int32_t note, int32_t velocity)
+  {
+      for(auto it = voices.begin(); it != voices.end(); )
+      {
+          if(it->note == note)
+          {
+              it->implementation.release_frame = it->implementation.elapsed;
+              release_voices.push_back(*it);
+              it = voices.erase(it);
+          }
+          else
+          {
+              ++it;
+          }
+      }
+  }
+
+  void bend(int32_t bend)
+  {
+      for(auto& voice : voices)
+      {
+          voice.bend = bend / 100.;
+      }
+      for(auto& voice : release_voices)
+      {
+          voice.bend = bend / 100.;
+      }
+  }
+
   void midi_input(const vintage::MidiEvent& e)
   {
-      int32_t status = e.midiData[0] & 0xf0;
-
-      switch (status) {
+      switch (e.midiData[0] & 0xF0)
+      {
       case 0x80: // Note off
+      {
+          note_off(e.midiData[1] & 0x7F, e.midiData[2] & 0x7F);
+          break;
+      }
+
       case 0x90: // Note on
       {
-          int32_t note = e.midiData[1] & 0x7F;
-          int32_t velocity = e.midiData[2] & 0x7F;
-          if (status == 0x80 || velocity == 0) {
-              for(auto it = voices.begin(); it != voices.end(); )
-              {
-                  if(it->note == note)
-                  {
-                      it->implementation.release_frame = it->implementation.elapsed;
-                      release_voices.push_back(*it);
-                      it = voices.erase(it);
-                  }
-                  else
-                  {
-                      ++it;
-                  }
-              }
+          if (int velocity = e.midiData[2] & 0x7F; velocity > 0) {
+              note_on(e.midiData[1] & 0x7F, velocity);
           } else {
-              voices.push_back({.note = float(note), .velocity = float(velocity), .detune = 0.0f});
-              float unison = this->controls.unison_voices * 20.0;
-              float detune = this->controls.unison_detune;
-              float vol = this->controls.unison_volume;
-              for(float i = -unison; i <= unison; i += 2.f)
-              {
-                  voices.push_back({.note = float(note), .velocity = velocity * vol, .detune = i * (1.f + detune)});
-              }
+              note_off(e.midiData[1] & 0x7F, 0);
           }
-      } break;
+          break;
+      }
 
       case 0xE0: // Pitch bend
+      {
+          int32_t lsb = (e.midiData[1] & 0x7F);
+          int32_t msb = (e.midiData[2] & 0x7F);
+          bend((msb << 7) + lsb - 0x2000);
           break;
-      case 0xB0: // Controller
-          break;
+      }
       }
   }
 
@@ -125,13 +165,14 @@ struct PolyphonicSynthesizer: vintage::Effect
       float note{};
       float velocity{};
       float detune{};
+      float bend{};
 
       typename T::voice implementation;
 
       template<typename sample_t>
       void process(PolyphonicSynthesizer& self, sample_t** outputs, int32_t frames)
       {
-          implementation.frequency = 440. * std::pow(2.0, (note - 69) / 12.0) + detune;
+          implementation.frequency = 440. * std::pow(2.0, (note - 69) / 12.0) + detune + bend;
           implementation.volume = velocity / 127.;
 
           implementation.process(self.implementation, outputs, frames);

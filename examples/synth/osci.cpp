@@ -11,12 +11,9 @@ struct Osci
   static constexpr auto product = "1.0";
   static constexpr auto category = vintage::PlugCategory::Synth;
   static constexpr auto version = 1;
-  static constexpr auto unique_id = 0xBA55E5;
+  static constexpr auto unique_id = 0xFACADE;
   static constexpr auto channels = 2;
 
-  // Will be set to the correct values.
-  // If you want a notification upon change,
-  // define instead a more intelligent class with an active operator=
   int32_t sample_rate = 0;
   int32_t buffer_size = 0;
 

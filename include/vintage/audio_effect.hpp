@@ -99,7 +99,20 @@ struct SimpleAudioEffect : vintage::Effect
     controls.write(implementation);
 
     // Actual processing
-    return implementation.process(inputs, outputs, sampleFrames);
+    if constexpr(requires { implementation.process(inputs, outputs, sampleFrames); })
+    {
+      return implementation.process(inputs, outputs, sampleFrames);
+    }
+    else if constexpr(requires { outputs[0][0] = implementation.process(inputs[0][0]); })
+    {
+      for(int32_t c = 0; c < implementation.channels; ++c)
+      {
+        for(int32_t i = 0; i < sampleFrames; i++)
+        {
+            outputs[c][i] = implementation.process(inputs[c][i]);
+        }
+      }
+    }
   }
 };
 }
